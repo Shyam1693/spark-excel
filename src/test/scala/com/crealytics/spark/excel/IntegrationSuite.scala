@@ -70,9 +70,14 @@ class IntegrationSuite
       saveMode: SaveMode,
       dataAddress: Option[String],
       useHeader: Boolean,
-      theFileName: String
+      theFileName: String,
+      singleFile: Boolean = true
     ) = {
-      val writer = df.coalesce(2).write.excel(dataAddress = s"'$sheetName'!A1", useHeader = useHeader).mode(saveMode)
+      val writer = df
+        .coalesce(2)
+        .write
+        .excel(dataAddress = s"'$sheetName'!A1", useHeader = useHeader, singleFile = singleFile)
+        .mode(saveMode)
       val configuredWriter =
         Map("dataAddress" -> dataAddress).foldLeft(writer) {
           case (wri, (key, Some(value))) => wri.option(key, value)
@@ -87,11 +92,12 @@ class IntegrationSuite
       fileName: Option[String] = None,
       saveMode: SaveMode = SaveMode.Overwrite,
       dataAddress: Option[String] = None,
-      useHeader: Boolean = true
+      useHeader: Boolean = true,
+      singleFile: Boolean = true
     ): DataFrame = {
       val theFileName = fileName.getOrElse(File.createTempFile("spark_excel_test_", ".xlsx").getAbsolutePath)
 
-      writeDf(df, saveMode, dataAddress, useHeader, theFileName)
+      writeDf(df, saveMode, dataAddress, useHeader, theFileName, singleFile = singleFile)
 
       val reader = spark.read.excel(dataAddress = s"'$sheetName'!A1", useHeader = useHeader)
       val configuredReader = Map(
@@ -187,8 +193,7 @@ class IntegrationSuite
         it("handles differing header column names correctly") {
           pending
         }
-        it("reads the data from all files") {
-          pending
+        it("reads the data from multiple explicitly given files") {
           forAll(rowsGen.filter(_.nonEmpty)) { rows =>
             val original = spark.createDataset(rows).toDF
             val subDfs = rows.zipWithIndex.groupBy(_._2 % 2).mapValues(r => spark.createDataset(r.map(_._1)).toDF)
@@ -199,6 +204,13 @@ class IntegrationSuite
                 fileName
             }
             val inferred = spark.read.excel().load(files.toSeq: _*)
+            assertEqualAfterInferringTypes(original, inferred)
+          }
+        }
+        it("reads the data from multiple files in a directory", WIP) {
+          forAll(rowsGen.filter(_.size > 10), fileNames) { (rows, fileName) =>
+            val original = spark.createDataset(rows).toDF
+            val inferred = writeThenRead(original, fileName = Some(fileName.getAbsolutePath), singleFile = false)
             assertEqualAfterInferringTypes(original, inferred)
           }
         }
@@ -222,7 +234,7 @@ class IntegrationSuite
         }
       }
 
-      it("reads files without headers correctly", WIP) {
+      it("reads files without headers correctly") {
         forAll(dataAndLocationGen.filter(_._1.nonEmpty), fileNames) {
           case ((rows, startCellAddress, endCellAddress), fileName) =>
             val original = spark.createDataset(rows).toDF

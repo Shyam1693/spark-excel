@@ -11,7 +11,8 @@ import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
 import scala.util.Try
 
-class DefaultSource extends CreatableRelationProvider {
+class DefaultSource extends CreatableRelationProvider with DataSourceRegister {
+  def shortName(): String = "excel-single-file"
 
   override def createRelation(
     sqlContext: SQLContext,

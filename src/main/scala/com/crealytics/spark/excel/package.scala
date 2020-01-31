@@ -155,7 +155,7 @@ package object excel {
       workbookPassword: String = null,
       singleFile: Boolean = true
     ): DataFrameWriter[T] = {
-      val format = if (singleFile) "com.crealytics.spark.excel" else "excel"
+      val format = if (singleFile) "excel-single-file" else "excel"
       Map(
         "header" -> useHeader,
         "dataAddress" -> dataAddress,
